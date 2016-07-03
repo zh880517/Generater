@@ -35,6 +35,7 @@ struct ActorRepeat
 	bool						bOwner;
 	std::string					strDesc;
 	std::string					strClassName;
+	std::string					strRedisKey;
 
 	std::vector<ActorRepeatProperty> vProperty;
 };

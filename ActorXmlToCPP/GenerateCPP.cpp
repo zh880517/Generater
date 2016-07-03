@@ -207,12 +207,12 @@ std::string GenerateProSet(Property& stPro, bool bRepeat = false)
 			char buff[200];
 			if (bRepeat)
 			{
-				snprintf(buff, sizeof(buff), "\t\tt.Set(Name(\"%s\", %u), Name(\"%s\", %u), %s, KeyFirst, KeySecond);\n",
+				snprintf(buff, sizeof(buff), "\t\tt.SetValue(Name(\"%s\", %u), Name(\"%s\", %u), %s, KeyFirst, KeySecond);\n",
 					stPro.RedisKey.c_str(), StringUtils::Hash(stPro.RedisKey.c_str()), stPro.Name.c_str(), StringUtils::Hash(stPro.Name.c_str()), stPro.Name.c_str());
 			}
 			else
 			{
-				snprintf(buff, sizeof(buff), "\t\tt.Set(Name(\"%s\", %u), Name(\"%s\", %u), %s, Key);\n",
+				snprintf(buff, sizeof(buff), "\t\tt.SetValue(Name(\"%s\", %u), Name(\"%s\", %u), %s, Key);\n",
 					stPro.RedisKey.c_str(), StringUtils::Hash(stPro.RedisKey.c_str()), stPro.Name.c_str(), StringUtils::Hash(stPro.Name.c_str()), stPro.Name.c_str());
 			}
 			
@@ -238,7 +238,7 @@ std::string GenerateProVisit(Property& stPro)
 	return ssOut.str();
 }
 
-std::string GenerateRepeatVisit(ActorRepeat& stRepeat, const std::string& strGroupName)
+std::string GenerateRepeatVisit(ActorRepeat& stRepeat)
 {
 	std::stringstream ssOut;
 	std::string strOwner("true");
@@ -246,10 +246,9 @@ std::string GenerateRepeatVisit(ActorRepeat& stRepeat, const std::string& strGro
 	{
 		strOwner = "false";
 	}
-	std::string strRedisKey = strGroupName + stRepeat.strRef;
 	char buff[200];
 	snprintf(buff, sizeof(buff), "\t\tt.Repeat(Name(\"%s\", %u), m%s, %s);\n",
-		strRedisKey.c_str(), StringUtils::Hash(strRedisKey.c_str()), stRepeat.strName.c_str(), strOwner.c_str());
+		stRepeat.strRedisKey.c_str(), StringUtils::Hash(stRepeat.strRedisKey.c_str()), stRepeat.strName.c_str(), strOwner.c_str());
 	ssOut << buff;
 	return ssOut.str();
 }
@@ -283,9 +282,7 @@ std::string GenerateRepeatInterface(ActorRepeat& stRepeat)
 			ssOut << buff;
 		}
 		{
-			ssOut << "\t\t" << "t.Add(Key, iIndex);" << std::endl;
-			ssOut << "\t\t" << "stData.visit(t);" << std::endl;
-			ssOut << "\t\t" << "t.Done();" << std::endl;
+			ssOut << "\t\t" << "t.Add(Name(\""<< stRepeat.strRedisKey<<"\", " << StringUtils::Hash(stRepeat.strRedisKey.c_str()) <<"), it->second);" << std::endl;
 			ssOut << "\t\t" << "return true;" << std::endl;
 		}
 		ssOut << "\t}" << std::endl;
@@ -303,10 +300,8 @@ std::string GenerateRepeatInterface(ActorRepeat& stRepeat)
 			ssOut << buff;
 		}
 		{
-			ssOut << "\t\t\t" << "t.Delete(Key, iIndex);" << std::endl;
-			ssOut << "\t\t\t" << "it->second.visit(t);" << std::endl;
+			ssOut << "\t\t\t" << "t.Delete(Name(\"" << stRepeat.strRedisKey << "\", " << StringUtils::Hash(stRepeat.strRedisKey.c_str()) << "), it->second);" << std::endl;
 			ssOut << "\t\t\t" << "m"<< stRepeat.strName <<".erase(it);" << std::endl;
-			ssOut << "\t\t" << "t.Done();" << std::endl;
 			ssOut << "\t\t\t" << "return true;" << std::endl;
 		}
 		ssOut << "\t\t}\n\t\treturn false;\n\t}" << std::endl;
@@ -349,7 +344,7 @@ std::stringstream GenerateCPP::GenerateRepeatClass(std::vector<Property>& vPro, 
 	{
 		ssOut << GenerateProSet(it, true);
 	}
-	ssOut << "\n\t" << "template<typename T> \n\tvoid visit(T& t)\n\t{" << std::endl;
+	ssOut << "\n\t" << "template<typename T> \n\tvoid Visit(T& t)\n\t{" << std::endl;
 	for (auto& it : vPro)
 	{
 		ssOut << GenerateProVisit(it);
@@ -419,18 +414,19 @@ bool GenerateCPP::GenerateStructClass(ActorStruct & actorStruct, std::stringstre
 
 	for (auto& it : actorStruct.vRepeat)
 	{
+		it.strRedisKey = pGroup->strName + "." + it.strRef;
 		ssOut << GenerateRepeatInterface(it);
 		ssMember << "\t" << "std::map<uint64_t, "<< it.strClassName <<"> m" << it.strName << ";" << std::endl;
 	}
 
-	ssOut << "\n\t" << "template<typename T> \n\tvoid visit(T& t)\n\t{" << std::endl;
+	ssOut << "\n\t" << "template<typename T> \n\tvoid Visit(T& t)\n\t{" << std::endl;
 	for (auto& it : vPro)
 	{
 		ssOut << GenerateProVisit(it);
 	}
 	for (auto& it : actorStruct.vRepeat)
 	{
-		ssOut << GenerateRepeatVisit(it, actorStruct.strGroup);
+		ssOut << GenerateRepeatVisit(it);
 	}
 	ssOut << "\t}" << std::endl;
 
@@ -449,7 +445,6 @@ bool GenerateCPP::GenerateActor(ActorEntity& actorEntity)
 
 	m_ssOut << "struct " << strClassName << std::endl;
 	m_ssOut << "{" << std::endl;
-//	m_ssOut << "public:" << std::endl;
 	for (auto& it : actorEntity.vStruct)
 	{
 		m_ssOut << "\t" << it.strClassName << " " << it.strName << ";" << std::endl;
@@ -457,18 +452,25 @@ bool GenerateCPP::GenerateActor(ActorEntity& actorEntity)
 
 	for (auto& it : actorEntity.vMap)
 	{
-// 		//Get ²Ù×÷
-// 		m_ssOut << "\t" << it.strClassName << "* Get" << it.strName << "(uint64_t iIndex) { return FindMapPtr(m" << it.strName << ", iIndex); }" << std::endl;
-// 		//Add ²Ù×÷
-// 		m_ssOut << "\ttemplate<typename T>" << std::endl;
-// 		m_ssOut << "\t" << it.strClassName << "* Add" << it.strNameF << "(T& t, uint64_t iIndex)" << std::endl;
-// 		m_ssOut << "\t{" << std::endl;
-// 		m_ssOut << "\t\t" << it.strClassName << "& stData = m" << it.strName << "[iIndex];";
-// 		m_ssOut << "\t\t" << "t.Load(iIndex);\n\t\tstData.visit(t);\n\t\tt.Done();\n\t\treturn &stData;\n\t}" << std::endl;
-
 		m_ssOut << "\t" << "std::map<uint64_t, " << it.strClassName <<"> m" << it.strName << ";" << std::endl;
 
 	}
+
+	m_ssOut << "\n\t" << "template<typename T> \n\tvoid Update(T& t)\n\t{" << std::endl;
+	for (auto& it : actorEntity.vStruct)
+	{
+		char buff[200];
+		snprintf(buff, sizeof(buff), "\t\tt.Struct(Name(\"%s\", %u), %s);\n", it.strGroup.c_str(), StringUtils::Hash(it.strGroup.c_str()), it.strName.c_str());
+		m_ssOut << buff;
+	}
+
+	for (auto& it : actorEntity.vMap)
+	{
+		char buff[200];
+		snprintf(buff, sizeof(buff), "\t\tt.Map(Name(\"%s\", %u), m%s);\n", it.strGroup.c_str(), StringUtils::Hash(it.strGroup.c_str()), it.strName.c_str());
+		m_ssOut << buff;
+	}
+	m_ssOut << "\t}\n" << std::endl;
 
 	m_ssOut << "}\n" << std::endl;
 

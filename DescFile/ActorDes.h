@@ -17,7 +17,7 @@ public:
 	bool SetBaseID(T &t, uint32_t t_BaseID)
 	{
 		if (t_BaseID == BaseID) return false;
-		t.Set(Name("player.bag.item", 636454631), Name("BaseID", 2834271757), BaseID, KeyFirst, KeySecond);
+		t.SetValue(Name("player.bag.item", 636454631), Name("BaseID", 2834271757), BaseID, KeyFirst, KeySecond);
 		return true;
 	}
 
@@ -25,12 +25,12 @@ public:
 	bool SetItemNum(T &t, uint32_t t_ItemNum)
 	{
 		if (t_ItemNum == ItemNum) return false;
-		t.Set(Name("player.bag.item", 636454631), Name("ItemNum", 219292900), ItemNum, KeyFirst, KeySecond);
+		t.SetValue(Name("player.bag.item", 636454631), Name("ItemNum", 219292900), ItemNum, KeyFirst, KeySecond);
 		return true;
 	}
 
 	template<typename T> 
-	void visit(T& t)
+	void Visit(T& t)
 	{
 		t.Property(Name("player.bag.item", 636454631), Name("BaseID", 2834271757), BaseID, true);
 		t.Property(Name("player.bag.item", 636454631), Name("ItemNum", 219292900), ItemNum, true);
@@ -56,7 +56,7 @@ public:
 	bool SetLevel(T &t, uint32_t t_Level)
 	{
 		if (t_Level == Level) return false;
-		t.Set(Name("player.base", 852532731), Name("Level", 228043805), Level, Key);
+		t.SetValue(Name("player.base", 852532731), Name("Level", 228043805), Level, Key);
 		return true;
 	}
 	uint32_t GetBuySpace()const { return BuySpace; }
@@ -67,9 +67,7 @@ public:
 	{
 		if (FindMapPtr(mItemBag, iIndex) != nullptr) return false;
 		mItemBag[iIndex] = stData;
-		t.Add(Key, iIndex);
-		stData.visit(t);
-		t.Done();
+		t.Add(Name("player.bag.item", 636454631), it->second);
 		return true;
 	}
 
@@ -79,10 +77,8 @@ public:
 		auto it = mItemBag.find(iIndex);
 		if (it != mItemBag.end())
 		{
-			t.Delete(Key, iIndex);
-			it->second.visit(t);
+			t.Delete(Name("player.bag.item", 636454631), it->second);
 			mItemBag.erase(it);
-		t.Done();
 			return true;
 		}
 		return false;
@@ -97,12 +93,12 @@ public:
 	}
 
 	template<typename T> 
-	void visit(T& t)
+	void Visit(T& t)
 	{
 		t.Property(Name("player.base", 852532731), Name("CreatTime", 3982507683), CreatTime, false);
 		t.Property(Name("player.base", 852532731), Name("Level", 228043805), Level, true);
 		t.Property(Name("player.bag", 4190651082), Name("BuySpace", 3009882721), BuySpace, false);
-		t.Repeat(Name("playerbag.item", 284731001), mItemBag, true);
+		t.Repeat(Name("player.bag.item", 636454631), mItemBag, true);
 	}
 private:
 	uint32_t CreatTime;
@@ -115,6 +111,13 @@ private:
 struct Actor_PlayerData
 {
 	PlayerBaseData Base;
+
+	template<typename T> 
+	void Update(T& t)
+	{
+		t.Struct(Name("player", 351953554), Base);
+	}
+
 }
 
 class ScenePlayerItemBagData
@@ -129,7 +132,7 @@ public:
 	uint32_t GetItemNum()const { return ItemNum; }
 
 	template<typename T> 
-	void visit(T& t)
+	void Visit(T& t)
 	{
 		t.Property(Name("player.bag.item", 636454631), Name("BaseID", 2834271757), BaseID, false);
 		t.Property(Name("player.bag.item", 636454631), Name("ItemNum", 219292900), ItemNum, false);
@@ -152,10 +155,10 @@ public:
 	ScenePlayerItemBagData* GetItemBagData(uint64_t iIndex) { return FindMapPtr(mItemBag, iIndex); }
 
 	template<typename T> 
-	void visit(T& t)
+	void Visit(T& t)
 	{
 		t.Property(Name("player.base", 852532731), Name("Level", 228043805), Level, false);
-		t.Repeat(Name("playerbag.item", 284731001), mItemBag, false);
+		t.Repeat(Name("player.bag.item", 636454631), mItemBag, false);
 	}
 private:
 	uint32_t Level;
@@ -166,5 +169,12 @@ private:
 struct Actor_SceneData
 {
 	std::map<uint64_t, ScenePlayerData> mPlayer;
+
+	template<typename T> 
+	void Update(T& t)
+	{
+		t.Map(Name("player", 351953554), mPlayer);
+	}
+
 }
 
