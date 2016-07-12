@@ -4,7 +4,8 @@
         <property name="CreatTime" type="datetime" desc="角色创建时间"/>
         <property name="Name" type="string"  desc="玩家名字"/>
         <property name="Career" type="uint32_t" desc="职业"/>
-        <property name="Level" type="uint32_t" default="1" desc="等级"/>
+        <property name="Level" type="uint32" default="1" desc="等级"/>
+        <array name="property" type="int32" len="10" desc="属性"/>
     </package>
     <package name="bag" desc="道具背包">
         <property name="BuySpace" type="uint32_t" default="0" desc="购买格子"/>

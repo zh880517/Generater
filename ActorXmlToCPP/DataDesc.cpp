@@ -65,6 +65,42 @@ bool DataProperty::Parse(rapidxml::xml_node<>* pNode)
 	return true;
 }
 
+bool DataArray::Parse(rapidxml::xml_node<>* pNode)
+{
+	if (pNode == nullptr) return false;
+	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
+	while (pAtt != nullptr)
+	{
+		if (pAtt->name() == std::string("name"))
+		{
+			strName = pAtt->value();
+			if (!checkDataName(strName)) return false;
+		}
+		else if (pAtt->name() == std::string("type"))
+		{
+			strType = pAtt->value();
+			if (!checkType(strType)) return false;
+		}
+		else if (pAtt->name() == std::string("len"))
+		{
+			strLen = pAtt->value();
+		}
+		else if (pAtt->name() == std::string("desc"))
+		{
+			strDesc = pAtt->value();
+		}
+
+		pAtt = pAtt->next_attribute();
+	}
+	if (strName.empty() || strType.empty() || strLen.empty())
+	{
+		LOG_FILE
+		std::cout << "Error : array node need name and type\array" << std::endl;
+		return false;
+	}
+	return true;
+}
+
 bool DataKey::Parse(rapidxml::xml_node<>* pNode)
 {
 	if (pNode == nullptr) return false;
@@ -145,6 +181,7 @@ bool DataRepeat::Parse(rapidxml::xml_node<>* pNode)
 		vProperty.push_back(stPro);
 		pProNode = pProNode->next_sibling("property");
 	}
+
 	return Check();
 }
 
@@ -248,7 +285,21 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 		}
 
 	}
+	{
 
+		rapidxml::xml_node<>* pArrayNode = pNode->first_node("array");
+		while (pArrayNode != nullptr)
+		{
+			DataArray stArray;
+			if (!stArray.Parse(pArrayNode))
+			{
+				LOG_FILE
+					std::cout << "Error : array in property :" << strName << std::endl;
+			}
+			vArray.push_back(stArray);
+			pArrayNode = pArrayNode->next_sibling("array");
+		}
+	}
 	return Check();
 }
 
@@ -272,6 +323,17 @@ bool DataPackage::Check()
 		{
 			LOG_FILE
 			std::cout << "Error : repeat name repeated name = " << it.strName << std::endl;
+			return false;
+		}
+		vName.insert(it.strName);
+	}
+	vName.clear();
+	for (auto& it : vArray)
+	{
+		if (vName.find(it.strName) != vName.end())
+		{
+			LOG_FILE
+				std::cout << "Error : array name repeated name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);

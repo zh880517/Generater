@@ -45,15 +45,15 @@ private:
 class PlayerBaseData
 { 
 public:
-	PlayerBaseData(uint64_t iKey):Key(iKey),Level(1),BuySpace(0){}
+	PlayerBaseData(uint64_t iKey):Key(iKey),BuySpace(0){}
 
 	uint64_t GetKey()const { return Key; }
 
 	uint32_t GetCreatTime()const { return CreatTime; }
-	uint32_t GetLevel()const { return Level; }
+	uint32 GetLevel()const { return Level; }
 
 	template<typename T>
-	bool SetLevel(T &t, uint32_t t_Level)
+	bool SetLevel(T &t, uint32 t_Level)
 	{
 		if (t_Level == Level) return false;
 		t.SetValue(Name("player.base", 852532731), Name("Level", 228043805), Level, Key);
@@ -102,7 +102,7 @@ public:
 	}
 private:
 	uint32_t CreatTime;
-	uint32_t Level;
+	uint32 Level;
 	uint32_t BuySpace;
 	std::map<uint64_t, PlayerBaseItemBagData> mItemBag;
 	uint64_t Key;
@@ -147,11 +147,11 @@ private:
 class ScenePlayerData
 { 
 public:
-	ScenePlayerData(uint64_t iKey):Key(iKey),Level(1){}
+	ScenePlayerData(uint64_t iKey):Key(iKey){}
 
 	uint64_t GetKey()const { return Key; }
 
-	uint32_t GetLevel()const { return Level; }
+	uint32 GetLevel()const { return Level; }
 	ScenePlayerItemBagData* GetItemBagData(uint64_t iIndex) { return FindMapPtr(mItemBag, iIndex); }
 
 	template<typename T> 
@@ -161,7 +161,7 @@ public:
 		t.Repeat(Name("player.bag.item", 636454631), mItemBag, false);
 	}
 private:
-	uint32_t Level;
+	uint32 Level;
 	std::map<uint64_t, ScenePlayerItemBagData> mItemBag;
 	uint64_t Key;
 }

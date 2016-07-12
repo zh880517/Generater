@@ -5,6 +5,7 @@
 		<property key="base" field="Level" owner="true"/> <!--owner为true的在生成的代码中有set的接口，不填或者false只有get接口-->
 		<property key="bag" field="BuySpace"/>
 		<repeat name="ItemBag" ref="bag.item" owner="true"/>
+		<array name="property"/>
 	</struct>
 </actor>
 <!--

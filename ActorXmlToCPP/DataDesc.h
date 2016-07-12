@@ -12,6 +12,7 @@ enum DataNodeType
 {
 	eNull,
 	eDataProperty,
+	eDataArray,
 	eDataKey,
 	eDataRepeat,
 	eDataPackage,
@@ -41,6 +42,17 @@ struct DataProperty : DataNode
 	std::string		strDefault;
 	std::string		strDesc;
 };
+
+struct DataArray : DataNode
+{
+	CONSTRUCT(DataArray)
+	bool	Parse(rapidxml::xml_node<>* pNode);
+	std::string		strName;
+	std::string		strType;
+	std::string		strLen;
+	std::string		strDesc;
+};
+
 
 struct DataKey : DataNode
 {
@@ -81,6 +93,7 @@ struct DataPackage : DataNode
 	std::string					strDesc;
 	std::vector<DataProperty>	vProperty;
 	std::vector<DataRepeat>		vRepeat;
+	std::vector<DataArray>		vArray;
 };
 
 struct DataGroup : DataNode
