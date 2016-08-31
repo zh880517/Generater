@@ -1,0 +1,17 @@
+<group name="player" index="0">
+	<package name="base" index="0" desc="玩家基础数据">
+		<property name="Level" index="0" type="uint32_t" desc="玩家等级"/>
+		<property name="Nation" index="1" type="uint32_t" desc="玩家国籍"/>
+		<property name="Offical" index="2" type="uint32_t" desc="玩家官职"/>
+	</package>
+	<repeated name="bagequip" index="1" desc="背包物品">
+		<property name="ConfigId" index="0" type="uint32_t" desc="配置表ID"/>
+		<property name="Level" index="1" type="uint32_t" desc="强化等级"/>
+	</repeated>
+</group>
+
+<group name="monster" index="1">
+	<package name="base" index="0" desc="怪物基础数据">
+		<property name="Level" index="0" type="uint32_t" desc="怪物等级"/>
+	</package>
+</group>

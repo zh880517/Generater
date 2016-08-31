@@ -42,6 +42,16 @@ bool FileUtils::CreadteDir(const std::string & strDir)
 	return bRet;
 }
 
+std::string FileUtils::GetFileName(const std::string & strFullPath)
+{
+	FileSystem::path stPath(strFullPath);
+	std::string strFileName = stPath.filename().string();
+	std::string::size_type nPos = strFileName.find_last_of('.');
+	if (nPos == std::string::npos)
+		return strFileName;
+	return std::string(strFileName.begin(), strFileName.begin() + nPos);
+}
+
 std::string FileUtils::PathSub(const std::string & strFull, const std::string & strPath)
 {
 	std::string strOut;
@@ -52,4 +62,41 @@ std::string FileUtils::PathSub(const std::string & strFull, const std::string & 
 		return strOut;
 	}
 	return strFull;
+}
+
+std::string FileUtils::PathSubWithOutExt(const std::string & strFull, const std::string & strPath)
+{
+	std::string strOut;
+	std::string::size_type nPos = strFull.find(strPath);
+	if (nPos != std::string::npos)
+	{
+		strOut.append(strFull.begin() + nPos + strPath.size(), strFull.end());
+	}
+	else
+	{
+		strOut = strFull;
+	}
+	uint32_t iStart = 0;
+	if (strOut[0] == '/')
+	{
+		iStart = 1;
+	}
+
+	std::string::size_type nLastPos = strOut.find_last_of(".");
+	if (nLastPos == std::string::npos)
+	{
+		return std::string(strOut.begin() + iStart, strOut.end());
+	}
+	return std::string(strOut.begin() + iStart, strOut.begin() + nLastPos);
+}
+
+std::string FileUtils::TransPath(const std::string & strPath)
+{
+	FileSystem::path stPath(strPath);
+	std::string strOut = stPath.generic_string();
+	if (strOut[strOut.size() -1] != '/')
+	{
+		strOut += "/";
+	}
+	return strOut;
 }

@@ -1,7 +1,10 @@
 #include <iostream>
-#include <Manager.h>
 #include <cmdline.h>
-
+#include <fstream>
+#include <DataDesc.h>
+#include <DataMgr.h>
+#include <ActorMgr.h>
+#include <FileUtils.h>
 int main(int argc, char *argv[])
 {
 	cmdline::parser cmd;
@@ -13,15 +16,22 @@ int main(int argc, char *argv[])
 		system("pause");
 		return 0;
 	}
+	std::string strXmlPath = FileUtils::TransPath(cmd.get<std::string>("xml"));
+	std::string strCppPath = FileUtils::TransPath(cmd.get<std::string>("cpp"));
 	
 
-	DataMgr dataMgr;
-	ActorMgr actorMgr(&dataMgr);
-	if (dataMgr.Load(cmd.get<std::string>("xml")) && actorMgr.Load(cmd.get<std::string>("xml"), cmd.get<std::string>("cpp")))
+	//strXmlPath.replace()
+	
+	if (!DataMgr::Instance().Load(strXmlPath, strCppPath))
 	{
-		actorMgr.Generate();
+		system("pause");
+		return 0;
 	}
-
-	system("pause");
+	if (!ActorMgr::Instance().Load(strXmlPath, strCppPath))
+	{
+		system("pause");
+		return 0;
+	}
+	
 	return 0;
 }

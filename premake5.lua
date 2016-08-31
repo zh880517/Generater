@@ -33,7 +33,7 @@ project "ActorXmlToCPP"
     location(BuilPath.."/ActorXmlToCPP") --工程目录
     objdir(ObjPath.."/ActorXmlToCPP/%{cfg.buildcfg}")
     includedirs {RapidXml_Path, "ActorXmlToCPP", "Utils"} --头文件目录
-    debugdir ""
+    debugdir "./"
     debugargs { "--xml=./DescFile", "--cpp=./DescFile" } --调试命令行参数
     files { "ActorXmlToCPP/**.h", "ActorXmlToCPP/**.cpp" , "Utils/**.h", "Utils/**.cpp"} --源码文件目录
     

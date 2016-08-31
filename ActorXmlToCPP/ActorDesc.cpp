@@ -2,20 +2,35 @@
 #include <rapidxml_utils.hpp>
 #include <iostream>
 #include <set>
+#include <StringUtils.h>
+#include <DataMgr.h>
 
 bool checkActorName(const std::string & strName)
 {
 	if (strName.find('.', 0) != std::string::npos)
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : name can't use . symbol where name = " << strName << std::endl;
 		return false;
 	}
 	return true;
 }
 
+KeyString Split(const std::string & strString)
+{
+	std::list<std::string> listResult;
+	StringUtils::Split(strString, listResult, ".");
+	if (listResult.size() != 2)
+	{
+		LOG_FILE;
+		std::cout << "Error: key must use . split, wrong key name = " << strString << std::endl;
+		return std::make_tuple ( "", "");
+	}
+	return std::make_tuple(listResult.front(), listResult.back());
+}
 
-bool ActorStructProperty::Parse(rapidxml::xml_node<>* pNode)
+
+bool ActorProperty::Parse(rapidxml::xml_node<>* pNode)
 {
 	if (pNode == nullptr) return false;
 	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
@@ -25,7 +40,7 @@ bool ActorStructProperty::Parse(rapidxml::xml_node<>* pNode)
 		if (pAtt->name() == std::string("key"))
 		{
 			strKey = pAtt->value();
-			if (!checkActorName(strKey)) return false;
+			//if (!checkActorName(strKey)) return false;
 		}
 		else if(pAtt->name() == std::string("field"))
 		{
@@ -47,45 +62,24 @@ bool ActorStructProperty::Parse(rapidxml::xml_node<>* pNode)
 	}
 	if (strKey.empty() || strField.empty())
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : property node need key and field" << std::endl;
 		return false;
 	}
-	return true;
-}
-
-
-bool ActorRepeatProperty::Parse(rapidxml::xml_node<>* pNode)
-{
-	if (pNode == nullptr) return false;
-	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
-	bOwner = false;
-	while (pAtt != nullptr)
+	if (bOwner)
 	{
-		if (pAtt->name() == std::string("field"))
+		std::string strKeyFiled = strKey + "." + strField;
+		static std::set<std::string> setOwner;
+		if (setOwner.find(strKeyFiled) != setOwner.end())
 		{
-			strField = pAtt->value();
-			if (!checkActorName(strField)) return false;
+			LOG_FILE;
+			std::cout << "Error : property more than one owner, keyfield = " << strKeyFiled << std::endl;
+			return false;
 		}
-		else if (pAtt->name() == std::string("owner"))
-		{
-			if (pAtt->value() == std::string("true"))
-			{
-				bOwner = true;
-			}
-		}
-		pAtt = pAtt->next_attribute();
-	}
-	if (strField.empty())
-	{
-		LOG_FILE
-		std::cout << "Error : repeat property node need field " << std::endl;
-		return false;
+		setOwner.insert(strKeyFiled);
 	}
 	return true;
 }
-
-
 
 bool ActorRepeat::Parse(rapidxml::xml_node<>* pNode)
 {
@@ -94,14 +88,9 @@ bool ActorRepeat::Parse(rapidxml::xml_node<>* pNode)
 	bOwner = false;
 	while (pAtt != nullptr)
 	{
-		if (pAtt->name() == std::string("name"))
+		if (pAtt->name() == std::string("key"))
 		{
-			strName = pAtt->value();
-			if (!checkActorName(strName)) return false;
-		}
-		else if (pAtt->name() == std::string("ref"))
-		{
-			strRef = pAtt->value();
+			strkey = pAtt->value();
 		}
 		else if (pAtt->name() == std::string("owner"))
 		{
@@ -117,62 +106,30 @@ bool ActorRepeat::Parse(rapidxml::xml_node<>* pNode)
 		}
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty() || strRef.empty())
+	if (strkey.empty())
 	{
-		LOG_FILE
-		std::cout << "Error : repeat node need name ref " << std::endl;
+		LOG_FILE;
+		std::cout << "Error : repeated node need key " << std::endl;
 		return false;
 	}
-	if (!bOwner)
+	if (bOwner)
 	{
-		rapidxml::xml_node<>* pProNode = pNode->first_node("property");
-		while (pProNode != nullptr)
+		static std::set<std::string> setKey;
+		if (setKey.find(strkey) != setKey.end())
 		{
-			ActorRepeatProperty stPro;
-			if (!stPro.Parse(pProNode))
-			{
-				LOG_FILE
-				std::cout << "Error : property in repeat :" << strName << std::endl;
-			}
-			vProperty.push_back(stPro);
-			pProNode = pProNode->next_sibling("property");
-		}
-		if (vProperty.empty())
-		{
-			LOG_FILE
-			std::cout << "Error : because owner is false, so need property in repeat:"<< strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error: repeated more zhan one owner, key = " << strkey << std::endl;
 			return false;
 		}
+		setKey.insert(strkey);
 	}
-	return Check();
-}
-
-bool ActorRepeat::Check()
-{
-	std::set<std::string> vName;
-	for (auto& it: vProperty)
+	std::list<std::string> listStr;
+	StringUtils::Split(strkey, listStr, ".");
+	if (listStr.size() > 0)
 	{
-		if (vName.find(it.strField) != vName.end())
-		{
-			LOG_FILE
-			std::cout << "Error : property name repeated field = " << it.strField << std::endl;
-			return false;
-		}
-		vName.insert(it.strField);
+		strName = listStr.back();
 	}
 	return true;
-}
-
-ActorRepeatProperty * ActorRepeat::GetProperty(const std::string & strName)
-{
-	for (auto& it: vProperty)
-	{
-		if (it.strField == strName)
-		{
-			return &it;
-		}
-	}
-	return nullptr;
 }
 
 bool ActorStruct::Parse(rapidxml::xml_node<>* pNode)
@@ -186,20 +143,16 @@ bool ActorStruct::Parse(rapidxml::xml_node<>* pNode)
 			strName = pAtt->value();
 			if (!checkActorName(strName)) return false;
 		}
-		else if (pAtt->name() == std::string("group"))
-		{
-			strGroup = pAtt->value();
-		}
 		else if (pAtt->name() == std::string("desc"))
 		{
 			strDesc = pAtt->value();
 		}
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty()|| strGroup.empty())
+	if (strName.empty())
 	{
-		LOG_FILE
-		std::cout << "Error : package node need name and group " << std::endl;
+		LOG_FILE;
+		std::cout << "Error : package node need name " << std::endl;
 		return false;
 	}
 
@@ -207,10 +160,10 @@ bool ActorStruct::Parse(rapidxml::xml_node<>* pNode)
 		rapidxml::xml_node<>* pProNode = pNode->first_node("property");
 		while (pProNode != nullptr)
 		{
-			ActorStructProperty stPro;
+			ActorProperty stPro;
 			if (!stPro.Parse(pProNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error : property in struct :" << strName << std::endl;
 			}
 			vProperty.push_back(stPro);
@@ -225,7 +178,7 @@ bool ActorStruct::Parse(rapidxml::xml_node<>* pNode)
 			ActorRepeat stActor;
 			if (!stActor.Parse(pRepeatNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error : repeat in struct :" << strName << std::endl;
 			}
 			vRepeat.push_back(stActor);
@@ -244,7 +197,7 @@ bool ActorStruct::Check()
 	{
 		if (vName.find(it.strField) != vName.end())
 		{
-			LOG_FILE
+			LOG_FILE;
 			std::cout << "Error : property field repeated, field = " << it.strField << std::endl;
 			return false;
 		}
@@ -253,18 +206,18 @@ bool ActorStruct::Check()
 	vName.clear();
 	for (auto& it : vRepeat)
 	{
-		if (vName.find(it.strName) != vName.end())
+		if (vName.find(it.strkey) != vName.end())
 		{
-			LOG_FILE
-			std::cout << "Error : repeat name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error : repeat key repeated name = " << it.strkey << std::endl;
 			return false;
 		}
-		vName.insert(it.strName);
+		vName.insert(it.strkey);
 	}
 	return true;
 }
 
-ActorStructProperty * ActorStruct::GetProperty(const std::string & strName)
+ActorProperty * ActorStruct::GetProperty(const std::string & strName)
 {
 	for (auto &it : vProperty)
 	{
@@ -288,92 +241,123 @@ ActorRepeat * ActorStruct::GetRepeat(const std::string & strName)
 	return nullptr;
 }
 
-bool ActorMap::Parse(rapidxml::xml_node<>* pNode)
+bool ActorStruct::GenCode(std::stringstream& strCode, std::set<std::string>& vDataFile, const std::string& strActor)
 {
-	if (pNode == nullptr) return false;
-	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
-	while (pAtt != nullptr)
-	{
-		if (pAtt->name() == std::string("name"))
-		{
-			strName = pAtt->value();
-			if (!checkActorName(strName)) return false;
-		}
-		else if (pAtt->name() == std::string("group"))
-		{
-			strGroup = pAtt->value();
-		}
-		else if (pAtt->name() == std::string("desc"))
-		{
-			strDesc = pAtt->value();
-		}
-		pAtt = pAtt->next_attribute();
-	}
-	if (strName.empty() || strGroup.empty())
-	{
-		LOG_FILE
-		std::cout << "Error : map node need name and group" << std::endl;
-		return false;
-	}
+	std::stringstream& ssOut(strCode);
+	std::string strClassName = strActor + strName + "Data";
+	ssOut << "template<typename DataHandle>\n";
+	ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
+	ssOut << "{\n";
 
-	{
-		rapidxml::xml_node<>* pProNode = pNode->first_node("property");
-		while (pProNode != nullptr)
-		{
-			ActorStructProperty stPro;
-			if (!stPro.Parse(pProNode))
-			{
-				LOG_FILE
-				std::cout << "Error : property in struct :" << strName << std::endl;
-			}
-			vProperty.push_back(stPro);
-			pProNode = pProNode->next_sibling("property");
-		}
-	}
-
-	{
-		rapidxml::xml_node<>* pRepeatNode = pNode->first_node("repeat");
-		while (pRepeatNode != nullptr)
-		{
-			ActorRepeat stActor;
-			if (!stActor.Parse(pRepeatNode))
-			{
-				LOG_FILE
-				std::cout << "Error : repeat in struct :" << strName << std::endl;
-			}
-			vRepeat.push_back(stActor);
-			pRepeatNode = pRepeatNode->next_sibling("repeat");
-		}
-
-	}
-
-	return Check();
-}
-
-bool ActorMap::Check()
-{
-	std::set<std::string> vName;
+	ssOut << "\t" << strClassName << "()\n";
+	ssOut << "\t{\n";
 	for (auto& it : vProperty)
 	{
-		if (vName.find(it.strKey) != vName.end())
-		{
-			LOG_FILE
-			std::cout << "Error : map key repeated name = " << it.strKey << std::endl;
-			return false;
-		}
-		vName.insert(it.strKey);
+		ssOut << "\t\t" << it.strField << ".SetDataHandle(this);\n";
 	}
-	vName.clear();
+	for (auto& it:vRepeat)
+	{
+		ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+	}
+	ssOut << "\t}\n";
+
+	ssOut << "\t" << strClassName << "(const " << strClassName << "& other)\n";
+	ssOut << "\t\t: ";
+	for (size_t i = 0; i < vProperty.size(); ++i)
+	{
+		if (i != 0)
+			ssOut << "\t\t, ";
+		auto& it = vProperty[i];
+		ssOut << it.strField << "(other." << it.strField << ")\n";
+	}
+	for (size_t i = 0; i < vRepeat.size(); ++i)
+	{
+		if (vProperty.size() > 0)
+			ssOut << "\t\t, ";
+		auto& it = vRepeat[i];
+		ssOut << it.strName << "(other." << it.strName << ")\n";
+	}
+	ssOut << "\t{\n";
+	for (auto& it : vProperty)
+	{
+		ssOut << "\t\t" << it.strField << ".SetDataHandle(this);\n";
+	}
 	for (auto& it : vRepeat)
 	{
-		if (vName.find(it.strName) != vName.end())
+		ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+	}
+	ssOut << "\t}\n\n";
+
+	for (auto& it:vProperty)
+	{
+		KeyString stKey = Split(it.strKey);
+		DataGroup* pGroup = DataMgr::Instance().GetDataGroup(std::get<0>(stKey));
+		if (pGroup == nullptr)
 		{
-			LOG_FILE
-			std::cout << "Error : map repeat name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			LOG_ERROR("have no group, name = " << std::get<0>(stKey));
 			return false;
 		}
-		vName.insert(it.strName);
+		DataPackage* pPackage = pGroup->GetPacket(std::get<1>(stKey));
+		if (pPackage == nullptr)
+		{
+			LOG_FILE;
+			LOG_ERROR("have no package in group:" << pGroup->strName << ", name = " << std::get<1>(stKey));
+			return false;
+		}
+		DataProperty* pPro = pPackage->GetProperty(it.strField);
+		if (pPro == nullptr)
+		{
+			LOG_FILE;
+			LOG_ERROR("have no field in :" << it.strKey <<", name = " << it.strField);
+			return false;
+		}
+		vDataFile.insert(pGroup->strFileName);
+		std::string strEnum = pGroup->strName + "_" + pPackage->strName + "_" + pPro->strName;
+		if (it.bOwner)
+		{
+			ssOut << "\tTValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << "> "
+				<< pPro->strName << "; //" << pPro->strDesc << "\n";
+		}
+		else
+		{
+			ssOut << "\tTBaseValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << "> "
+				<< pPro->strName << "; //" << pPro->strDesc << "\n";
+		}
 	}
+
+	for (auto& it : vRepeat)
+	{
+		KeyString stKey = Split(it.strkey);
+		DataGroup* pGroup = DataMgr::Instance().GetDataGroup(std::get<0>(stKey));
+		if (pGroup == nullptr)
+		{
+			LOG_FILE;
+			LOG_ERROR("have no group, name = " << std::get<0>(stKey));
+			return false;
+		}
+		DataRepeated* pRepeated = pGroup->GetRepeated(std::get<1>(stKey));
+		if (pRepeated == nullptr)
+		{
+			LOG_FILE;
+			LOG_ERROR("have no repeated in group:" << pGroup->strName << ", name = " << std::get<1>(stKey));
+			return false;
+		}
+		vDataFile.insert(pGroup->strFileName);
+		std::string strRepeatedClassName = pGroup->strName + "_" + pRepeated->strName + "_data";
+		std::string strEnum = pGroup->strName + "_" + pRepeated->strName;
+		if (it.bOwner)
+		{
+			ssOut << "\tTRepeated<" << strRepeatedClassName <<", "<< strClassName << ", " << strEnum << "> " << it.strName << "; //" << pRepeated->strDesc <<"\n";
+		}
+		else
+		{
+			ssOut << "\tTBaseRepeat<" << strRepeatedClassName << ", " << strClassName << ", " << strEnum << "> " << it.strName << "; //" << pRepeated->strDesc << "\n";
+		}
+	}
+
+	ssOut << "};\n\n";
+
 	return true;
 }
 
@@ -392,7 +376,7 @@ bool ActorEntity::Parse(rapidxml::xml_node<>* pNode)
 	}
 	if (strName.empty())
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : actor node need name " << std::endl;
 		return false;
 	}
@@ -404,38 +388,25 @@ bool ActorEntity::Parse(rapidxml::xml_node<>* pNode)
 			ActorStruct stData;
 			if (!stData.Parse(pSubNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error : struct in package :" << strName << std::endl;
 			}
 			vStruct.push_back(stData);
 			pSubNode = pSubNode->next_sibling("struct");
 		}
 	}
-	{
-		rapidxml::xml_node<>* pSubNode = pNode->first_node("map");
-		while (pSubNode != nullptr)
-		{
-			ActorMap stData;
-			if (!stData.Parse(pSubNode))
-			{
-				LOG_FILE
-				std::cout << "Error : map in package :" << strName << std::endl;
-			}
-			vMap.push_back(stData);
-			pSubNode = pSubNode->next_sibling("map");
-		}
-	}
+	
 	return Check();
 }
 
 bool ActorEntity::Check()
 {
-	std::set<std::string> vName;
+	static std::set<std::string> vName;
 	for (auto& it : vStruct)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
+			LOG_FILE;
 			std::cout << "Error : package name repeated name = " << it.strName << std::endl;
 			return false;
 		}
@@ -456,18 +427,15 @@ ActorStruct * ActorEntity::GetStruct(const std::string & strName)
 	return nullptr;
 }
 
-ActorMap * ActorEntity::GetMap(const std::string & strName)
+bool ActorEntity::GenCode(std::stringstream& ssCode, std::set<std::string>& vDataFile)
 {
-	for (auto &it : vMap)
+	for (auto& it:vStruct)
 	{
-		if (it.strName == strName)
-		{
-			return &it;
-		}
+		if (!it.GenCode(ssCode, vDataFile, strName))
+			return false;
 	}
-	return nullptr;
+	return true;
 }
-
 
 bool ActorFile::Parse(const std::string & strFile)
 {
@@ -484,7 +452,7 @@ bool ActorFile::Parse(const std::string & strFile)
 			ActorEntity stActor;
 			if (!stActor.Parse(pActorNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error: parse failed file name = " << strFile;
 				return false;
 			}
@@ -496,7 +464,7 @@ bool ActorFile::Parse(const std::string & strFile)
 	}
 	catch (const std::exception& e)
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << e.what() << std::endl;
 		return false;
 	}
@@ -504,16 +472,39 @@ bool ActorFile::Parse(const std::string & strFile)
 
 bool ActorFile::Check()
 {
-	std::set<std::string> vName;
+	static std::set<std::string> vName;
 	for (auto& it : vActor)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
+			LOG_FILE;
 			std::cout << "Error : actor name repeated name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);
 	}
+	return true;
+}
+
+bool ActorFile::Generate(std::string& strOut)
+{
+	std::stringstream ssOut;
+	std::stringstream ssCode;
+	std::set<std::string> vDataFile;
+	for (auto& it:vActor)
+	{
+		if (!it.GenCode(ssCode, vDataFile))
+			return false;
+	}
+	ssOut << "#include <TValue.h>" << std::endl;
+	ssOut << "#include <TRepeated.h>" << std::endl;
+	ssOut << "#include <TStruct.h>" << std::endl;
+	for (auto& it:vDataFile)
+	{
+		ssOut << "#include <" << it << ".h>" << std::endl;
+	}
+
+	ssOut << "\n" << ssCode.str() << std::endl;
+	strOut = ssOut.str();
 	return true;
 }

@@ -18,5 +18,11 @@ public:
 
 	static bool CreadteDir(const std::string & strDir);
 
+	static std::string GetFileName(const std::string& strFullPath);
+
 	static std::string PathSub(const std::string& strFull, const std::string& strPath);
+	static std::string PathSubWithOutExt(const std::string& strFull, const std::string& strPath);
+
+	static std::string TransPath(const std::string& strPath);
+
 };

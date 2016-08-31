@@ -1,7 +1,9 @@
 #include <DataDesc.h>
 #include <iostream>
 #include <set>
+#include <map>
 #include <rapidxml_utils.hpp>
+#include <FileUtils.h>
 
 bool checkDataName(const std::string & strName)
 {
@@ -49,23 +51,23 @@ bool DataProperty::Parse(rapidxml::xml_node<>* pNode)
 		{
 			strDesc = pAtt->value();
 		}
-		else if (pAtt->name() == std::string("default"))
+		else if (pAtt->name() == std::string("index"))
 		{
-			strDefault = pAtt->value();
+			iIndex = atoi(pAtt->value());
 		}
 
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty() || strType.empty())
+	if (strName.empty() || strType.empty() || iIndex == -1)
 	{
-		LOG_FILE
-		std::cout << "Error : property node need name and type" << std::endl;
+		LOG_FILE;
+		std::cout << "Error : property node need name and type ¡¢Index" << std::endl;
 		return false;
 	}
 	return true;
 }
 
-bool DataArray::Parse(rapidxml::xml_node<>* pNode)
+bool DataRepeated::Parse(rapidxml::xml_node<>* pNode)
 {
 	if (pNode == nullptr) return false;
 	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
@@ -76,46 +78,9 @@ bool DataArray::Parse(rapidxml::xml_node<>* pNode)
 			strName = pAtt->value();
 			if (!checkDataName(strName)) return false;
 		}
-		else if (pAtt->name() == std::string("type"))
+		else if(pAtt->name() == std::string("index"))
 		{
-			strType = pAtt->value();
-			if (!checkType(strType)) return false;
-		}
-		else if (pAtt->name() == std::string("len"))
-		{
-			strLen = pAtt->value();
-		}
-		else if (pAtt->name() == std::string("desc"))
-		{
-			strDesc = pAtt->value();
-		}
-
-		pAtt = pAtt->next_attribute();
-	}
-	if (strName.empty() || strType.empty() || strLen.empty())
-	{
-		LOG_FILE
-		std::cout << "Error : array node need name and type\array" << std::endl;
-		return false;
-	}
-	return true;
-}
-
-bool DataKey::Parse(rapidxml::xml_node<>* pNode)
-{
-	if (pNode == nullptr) return false;
-	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
-	while (pAtt != nullptr)
-	{
-		if (pAtt->name() == std::string("name"))
-		{
-			strName = pAtt->value();
-			if (!checkDataName(strName)) return false;
-		}
-		else if (pAtt->name() == std::string("type"))
-		{
-			strType = pAtt->value();
-			if (!checkType(strType)) return false;
+			iIndex = atoi(pAtt->value());
 		}
 		else if (pAtt->name() == std::string("desc"))
 		{
@@ -123,52 +88,18 @@ bool DataKey::Parse(rapidxml::xml_node<>* pNode)
 		}
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty() || strType.empty())
+	if (strName.empty())
 	{
-		LOG_FILE
-		std::cout << "Error : key node need name and type" << std::endl;
-		return false;
-	}
-	return true;
-}
-
-bool DataRepeat::Parse(rapidxml::xml_node<>* pNode)
-{
-	if (pNode == nullptr) return false;
-	rapidxml::xml_attribute<>* pAtt = pNode->first_attribute();
-	while (pAtt != nullptr)
-	{
-		if (pAtt->name() == std::string("name"))
-		{
-			strName = pAtt->value();
-			if (!checkDataName(strName)) return false;
-		}
-		else if (pAtt->name() == std::string("desc"))
-		{
-			strDesc = pAtt->value();
-		}
-		pAtt = pAtt->next_attribute();
-	}
-	if (strName.empty() )
-	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : repeat node need name " << std::endl;
 		return false;
 	}
-	rapidxml::xml_node<>* pKeyNode = pNode->first_node("key");
-	if (pKeyNode == nullptr)
+	if (iIndex == -1)
 	{
-		LOG_FILE
-		std::cout << "Error : repeat node need key : where repeat name = " << strName;
+		LOG_FILE;
+		std::cout << "Error : repeat node need index " << std::endl;
 		return false;
 	}
-	if (!stKey.Parse(pKeyNode))
-	{
-		LOG_FILE
-		std::cout << "Error : key in repeat : " << strName << std::endl;
-		return false;
-	}
-
 	rapidxml::xml_node<>* pProNode = pNode->first_node("property");
 	while (pProNode != nullptr)
 	{
@@ -185,23 +116,34 @@ bool DataRepeat::Parse(rapidxml::xml_node<>* pNode)
 	return Check();
 }
 
-bool DataRepeat::Check()
+bool DataRepeated::Check()
 {
 	std::set<std::string> vName;
 	for (auto& it: vProperty)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
+			LOG_FILE;
 			std::cout << "Error : property name repeated name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);
 	}
+	std::set<int32_t> vIndex;
+	for (auto & it:vProperty)
+	{
+		if (vIndex.find(it.iIndex) != vIndex.end())
+		{
+			LOG_FILE;
+			std::cout << "Error : property index repeated name = " << it.strName << std::endl;
+			return false;
+		}
+		vIndex.insert(it.iIndex);
+	}
 	return true;
 }
 
-DataProperty * DataRepeat::GetProperty(const std::string & strName)
+DataProperty * DataRepeated::GetProperty(const std::string & strName)
 {
 	for (auto& it: vProperty)
 	{
@@ -214,21 +156,108 @@ DataProperty * DataRepeat::GetProperty(const std::string & strName)
 }
 
 
-DataNode* DataRepeat::GetNode(std::list<std::string> listName)
+DataNode* DataRepeated::GetNode(std::list<std::string> listName)
 {
-	if (stKey.strName == listName.front())
+	
+	for (auto& it:vProperty)
 	{
-		if (listName.size() == 1)
+		if (it.strName == listName.front())
 		{
-			return &stKey;
-		}
-		else
-		{
-			listName.pop_front();
-			return stKey.GetNode(listName);
+			return &it;
 		}
 	}
 	return nullptr;
+}
+
+void DataRepeated::GenIndex(std::list<NameIndex>& listIndex, NameIndex stIndex)
+{
+	stIndex.strPackRepeat = strName;
+	stIndex.stIndex.Detail.Package = iIndex;
+	listIndex.push_back(stIndex);
+	for (auto& it : vProperty)
+	{
+		stIndex.strField = it.strName;
+		stIndex.stIndex.Detail.Property = it.iIndex;
+		listIndex.push_back(stIndex);
+	}
+}
+
+std::string DataRepeated::GenCode(const std::string & strGroup)
+{
+	std::stringstream ssOut;
+// 	{
+// 		std::string strClassName = strGroup + "_" + strName + "_r";
+// 		ssOut << "template<typename DataHandle>\n";
+// 		ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
+// 		ssOut << "{\n";
+// 
+// 		ssOut << "\t" << strClassName << "()\n" ;
+// 		ssOut << "\t{\n";
+// 		for (auto& it : vProperty)
+// 		{
+// 			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+// 		}
+// 		ssOut << "\t}\n";
+// 		ssOut << "\t" << strClassName << "(const " << strClassName << "& other)\n";
+// 		ssOut << "\t\t: ";
+// 		for (size_t i=0; i< vProperty.size(); ++i)
+// 		{
+// 			if (i != 0)
+// 				ssOut << "\t\t, ";
+// 			auto& it = vProperty[i];
+// 			ssOut << it.strName << "(other." << it.strName << ")\n";
+// 		}
+// 		ssOut << "\t{\n";
+// 		for (auto& it:vProperty)
+// 		{
+// 			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+// 		}
+// 		ssOut << "\t}\n\n";
+// 
+// 		for (auto& it:vProperty)
+// 		{
+// 			ssOut << "\tTBaseValue<" << DataFile::RealType(it.strType) << ", " << strClassName << ", " << strGroup << "_" << strName << "_" << it.strName << "> " << it.strName << ";\n";
+// 		}
+// 		ssOut << "};\n\n";
+// 	}
+	{
+		std::string strClassName = strGroup + "_" + strName + "_data";
+		ssOut << "template<typename DataHandle>\n";
+		ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
+		ssOut << "{\n";
+
+		ssOut << "\t" << strClassName << "()\n";
+		ssOut << "\t{\n";
+		for (auto& it : vProperty)
+		{
+			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+		}
+		ssOut << "\t}\n";
+
+		ssOut << "\t" << strClassName << "(const " << strClassName << "& other)\n";
+		ssOut << "\t\t: ";
+		for (size_t i = 0; i < vProperty.size(); ++i)
+		{
+			if (i != 0)
+				ssOut << "\t\t, ";
+			auto& it = vProperty[i];
+			ssOut << it.strName << "(other." << it.strName << ")\n";
+		}
+		ssOut << "\t{\n";
+		for (auto& it : vProperty)
+		{
+			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
+		}
+		ssOut << "\t}\n\n";
+
+		for (auto& it : vProperty)
+		{
+			ssOut << "\tTValue<" << DataFile::RealType(it.strType) << ", " << strClassName << ", " << strGroup << "_" << strName << "_" << it.strName << "> "
+				<< it.strName << "; //" << it.strDesc << "\n";
+		}
+		ssOut << "};\n\n";
+	}
+	return ssOut.str();
 }
 
 bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
@@ -242,6 +271,10 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 			strName = pAtt->value();
 			if (!checkDataName(strName)) return false;
 		}
+		else if(pAtt->name() == std::string("index"))
+		{
+			iIndex = atoi(pAtt->value());
+		}
 		else if (pAtt->name() == std::string("desc"))
 		{
 			strDesc = pAtt->value();
@@ -250,11 +283,16 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 	}
 	if (strName.empty())
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : package node need name " << std::endl;
 		return false;
 	}
-
+	if (iIndex == -1)
+	{
+		LOG_FILE;
+		std::cout << "Error : package node need index " << std::endl;
+		return false;
+	}
 	{
 		rapidxml::xml_node<>* pProNode = pNode->first_node("property");
 		while (pProNode != nullptr)
@@ -262,7 +300,7 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 			DataProperty stPro;
 			if (!stPro.Parse(pProNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error : property in package :" << strName << std::endl;
 			}
 			vProperty.push_back(stPro);
@@ -270,73 +308,29 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 		}
 	}
 
-	{
-		rapidxml::xml_node<>* pRepeatNode = pNode->first_node("repeat");
-		while (pRepeatNode != nullptr)
-		{
-			DataRepeat stData;
-			if (!stData.Parse(pRepeatNode))
-			{
-				LOG_FILE
-				std::cout << "Error : repeat in package :" << strName << std::endl;
-			}
-			vRepeat.push_back(stData);
-			pRepeatNode = pRepeatNode->next_sibling("repeat");
-		}
-
-	}
-	{
-
-		rapidxml::xml_node<>* pArrayNode = pNode->first_node("array");
-		while (pArrayNode != nullptr)
-		{
-			DataArray stArray;
-			if (!stArray.Parse(pArrayNode))
-			{
-				LOG_FILE
-					std::cout << "Error : array in property :" << strName << std::endl;
-			}
-			vArray.push_back(stArray);
-			pArrayNode = pArrayNode->next_sibling("array");
-		}
-	}
 	return Check();
 }
 
 bool DataPackage::Check()
 {
 	std::set<std::string> vName;
+	std::set<int32_t> vIndex;
 	for (auto& it : vProperty)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
-			std::cout << "Error : property name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error : property name repeated, name = " << it.strName << std::endl;
 			return false;
 		}
-		vName.insert(it.strName);
-	}
-	vName.clear();
-	for (auto& it : vRepeat)
-	{
-		if (vName.find(it.strName) != vName.end())
+		if (vIndex.find(it.iIndex) != vIndex.end())
 		{
-			LOG_FILE
-			std::cout << "Error : repeat name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error : property index repeated, name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);
-	}
-	vName.clear();
-	for (auto& it : vArray)
-	{
-		if (vName.find(it.strName) != vName.end())
-		{
-			LOG_FILE
-				std::cout << "Error : array name repeated name = " << it.strName << std::endl;
-			return false;
-		}
-		vName.insert(it.strName);
+		vIndex.insert(it.iIndex);
 	}
 	return true;
 }
@@ -353,17 +347,6 @@ DataProperty * DataPackage::GetProperty(const std::string & strName)
 	return nullptr;
 }
 
-DataRepeat * DataPackage::GetRepeat(const std::string & strName)
-{
-	for (auto &it : vRepeat)
-	{
-		if (it.strName == strName)
-		{
-			return &it;
-		}
-	}
-	return nullptr;
-}
 
 DataNode* DataPackage::GetNode(std::list<std::string> listName)
 {
@@ -380,20 +363,20 @@ DataNode* DataPackage::GetNode(std::list<std::string> listName)
 		}
 	}
 
-	for (auto& it : vRepeat)
-	{
-		if (it.strName == listName.front())
-		{
-			listName.pop_front();
-			if (listName.size() > 0)
-			{
-				return it.GetNode(listName);
-			}
-			return &it;
-		}
-	}
-
 	return nullptr;
+}
+
+void DataPackage::GenIndex(std::list < NameIndex >& listIndex, NameIndex stIndex)
+{
+	stIndex.strPackRepeat = strName;
+	stIndex.stIndex.Detail.Package = iIndex;
+	listIndex.push_back(stIndex);
+	for (auto& it:vProperty)
+	{
+		stIndex.strField = it.strName;
+		stIndex.stIndex.Detail.Property = it.iIndex;
+		listIndex.push_back(stIndex);
+	}
 }
 
 bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
@@ -407,28 +390,23 @@ bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
 			strName = pAtt->value();
 			if (!checkDataName(strName)) return false;
 		}
+		else if(pAtt->name() == std::string("index"))
+		{
+			iIndex = atoi(pAtt->value());
+		}
 		pAtt = pAtt->next_attribute();
 	}
 	if (strName.empty())
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << "Error : group node need name " << std::endl;
 		return false;
 	}
+	if (iIndex == -1)
 	{
-		rapidxml::xml_node<>* pKeyNode = pNode->first_node("key");
-		if (pKeyNode == nullptr)
-		{
-			LOG_FILE
-			std::cout << "Error : repeat node need key : where repeat name = " << strName;
-			return false;
-		}
-		if (!stKey.Parse(pKeyNode))
-		{
-			LOG_FILE
-			std::cout << "Error : key in repeat : " << strName << std::endl;
-			return false;
-		}
+		LOG_FILE;
+		std::cout << "Error : group node need index " << std::endl;
+		return false;
 	}
 
 	{
@@ -438,11 +416,25 @@ bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
 			DataPackage stData;
 			if (!stData.Parse(pPackageNode))
 			{
-				LOG_FILE
-				std::cout << "Error : repeat in package :" << strName << std::endl;
+				LOG_FILE;
+				std::cout << "Error : package in group :" << strName << std::endl;
 			}
 			vPackage.push_back(stData);
 			pPackageNode = pPackageNode->next_sibling("package");
+		}
+	}
+	{
+		rapidxml::xml_node<>* pRepeatedNode = pNode->first_node("repeated");
+		while (pRepeatedNode != nullptr)
+		{
+			DataRepeated stData;
+			if (!stData.Parse(pRepeatedNode))
+			{
+				LOG_FILE;
+				std::cout << "Error : repeated in package :" << strName << std::endl;
+			}
+			vRepeated.push_back(stData);
+			pRepeatedNode = pRepeatedNode->next_sibling("repeated");
 		}
 	}
 	return Check();
@@ -451,12 +443,36 @@ bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
 bool DataGroup::Check()
 {
 	std::set<std::string> vName;
+	std::set<int32_t> vIndex;
 	for (auto& it : vPackage)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
-			std::cout << "Error : package name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error : package name repeated, name = " << it.strName << std::endl;
+			return false;
+		}
+		if (vIndex.find(it.iIndex) != vIndex.end())
+		{
+			LOG_FILE;
+			std::cout << "Error : package index repeated, name = " << it.strName << std::endl;
+			return false;
+		}
+		vName.insert(it.strName);
+		vIndex.insert(it.iIndex);
+	}
+	for (auto& it : vRepeated)
+	{
+		if (vName.find(it.strName) != vName.end())
+		{
+			LOG_FILE;
+			std::cout << "Error : repeated name repeated, name = " << it.strName << std::endl;
+			return false;
+		}
+		if (vIndex.find(it.iIndex) != vIndex.end())
+		{
+			LOG_FILE;
+			std::cout << "Error : repeated index repeated, name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);
@@ -476,19 +492,34 @@ DataPackage * DataGroup::GetPacket(const std::string & strName)
 	return nullptr;
 }
 
+DataRepeated * DataGroup::GetRepeated(const std::string & strName)
+{
+	for (auto &it : vRepeated)
+	{
+		if (it.strName == strName)
+		{
+			return &it;
+		}
+	}
+	return nullptr;
+}
+
 DataNode* DataGroup::GetNode(std::list<std::string> listName)
 {
-	if (stKey.strName == listName.front())
-	{
-		listName.pop_front();
-		if (listName.size() > 0)
-		{
-			return stKey.GetNode(listName);
-		}
-		return &stKey;
-	}
 
 	for (auto& it : vPackage)
+	{
+		if (it.strName == listName.front())
+		{
+			listName.pop_front();
+			if (listName.size() > 0)
+			{
+				return it.GetNode(listName);
+			}
+			return &it;
+		}
+	}
+	for (auto& it : vRepeated)
 	{
 		if (it.strName == listName.front())
 		{
@@ -503,6 +534,24 @@ DataNode* DataGroup::GetNode(std::list<std::string> listName)
 	return nullptr;
 }
 
+void DataGroup::GenIndex(std::list<NameIndex>& listIndex)
+{
+	for (auto& it:vPackage)
+	{
+		NameIndex stIndex;
+		stIndex.strGroup = strName;
+		stIndex.stIndex.Detail.Group = iIndex;
+		it.GenIndex(listIndex, stIndex);
+	}
+	for (auto& it : vRepeated)
+	{
+		NameIndex stIndex;
+		stIndex.strGroup = strName;
+		stIndex.stIndex.Detail.Group = iIndex;
+		it.GenIndex(listIndex, stIndex);
+	}
+}
+
 bool DataFile::Parse(const std::string & strFile)
 {
 	try
@@ -510,14 +559,14 @@ bool DataFile::Parse(const std::string & strFile)
 		rapidxml::file<> file(strFile.c_str());
 		rapidxml::xml_document<> doc;
 		doc.parse<0>(file.data());
-
+		strFileName = strFile;
 		rapidxml::xml_node<>* pActorNode = doc.first_node("group");
 		while (pActorNode != nullptr)
 		{
 			DataGroup stGroup;
 			if (!stGroup.Parse(pActorNode))
 			{
-				LOG_FILE
+				LOG_FILE;
 				std::cout << "Error: parse failed file name = " << strFile;
 				return false;
 			}
@@ -529,7 +578,7 @@ bool DataFile::Parse(const std::string & strFile)
 	}
 	catch (const std::exception& e)
 	{
-		LOG_FILE
+		LOG_FILE;
 		std::cout << e.what() << std::endl;
 		return false;
 	}
@@ -537,16 +586,24 @@ bool DataFile::Parse(const std::string & strFile)
 
 bool DataFile::Check()
 {
-	std::set<std::string> vName;
+	static std::set<std::string> vName;
+	static std::set<int32_t> vIndex;
 	for (auto& it : vGroup)
 	{
 		if (vName.find(it.strName) != vName.end())
 		{
-			LOG_FILE
-			std::cout << "Error : group name repeated name = " << it.strName << std::endl;
+			LOG_FILE;
+			std::cout << "Error : group name repeated, name = " << it.strName << std::endl;
+			return false;
+		}
+		if (vIndex.find(it.iIndex) != vIndex.end())
+		{
+			LOG_FILE;
+			std::cout << "Error : group index repeated, name = " << it.strName << std::endl;
 			return false;
 		}
 		vName.insert(it.strName);
+		vIndex.insert(it.iIndex);
 	}
 	return true;
 }
@@ -578,4 +635,83 @@ DataNode* DataFile::GetNode(std::list<std::string> listName)
 		}
 	}
 	return nullptr;
+}
+
+std::string	GenEnum(const std::list<NameIndex>& listIndex, const std::string& strGroup)
+{
+	std::stringstream ss;
+	ss << "enum E_" << strGroup << "_Index\n";
+	ss << "{\n";
+	for (auto& it: listIndex)
+	{
+		ss << "\t" << it.strGroup << "_" << it.strPackRepeat ;
+		if (!it.strField.empty())
+			ss << "_" << it.strField;
+		ss << " = " << it.stIndex.ToString() << ",\n";
+	}
+	ss << "};\n\n";
+	return ss.str();
+}
+
+bool DataFile::Generate(std::string& strCode, std::string& strRegistKeyField)
+{
+	std::list<NameIndex> listIndex;
+	std::stringstream ssRepeated;
+	std::stringstream ssEnum;
+	std::stringstream ssOut;
+	ssOut << "#include <TValue.h>" << std::endl;
+	ssOut << "#include <TStruct.h>" << std::endl;
+	ssOut << "#include <IndexName.h>" << std::endl;
+	for (auto& it :vGroup)
+	{
+		std::list<NameIndex> GrouIndex;
+		it.GenIndex(GrouIndex);
+		ssEnum << GenEnum(GrouIndex, it.strName);
+		listIndex.insert(listIndex.end(), GrouIndex.begin(), GrouIndex.end());
+		for (auto& itRepeated:it.vRepeated)
+		{
+			ssRepeated << itRepeated.GenCode(it.strName);
+		}
+	}
+
+	ssOut << ssEnum.str();
+	std::stringstream ssRegist;
+	std::string strInitClassName = FileUtils::GetFileName(strFileName) + "_Index_Regist";
+	ssRegist << "class " << strInitClassName << "\n";
+	ssRegist << "{\n";
+	ssRegist << "public:\n";
+	ssRegist << "\t" << strInitClassName << "(){\n";
+	for (auto& it : listIndex)
+	{
+		if (!it.strField.empty())
+		{
+			ssRegist << "\t\tKeyFieldMgr::AddField(\"" << it.strField << "\", " << it.strGroup << "_" << it.strPackRepeat << "_" << it.strField << ");\n";
+		} 
+		else
+		{
+			ssRegist << "\t\tKeyFieldMgr::AddKey(\"" << it.strGroup << "." << it.strPackRepeat << "\", " << it.strGroup << "_" << it.strPackRepeat << ");\n";
+		}
+	}
+	ssRegist << "\t}\n";
+	ssRegist << "};\n";
+
+	ssRegist << "static " << strInitClassName << " s_st" << strInitClassName << ";\n\n";
+
+	ssOut << ssRepeated.str();
+	strCode = ssOut.str();
+	strRegistKeyField = ssRegist.str();
+	return true;
+}
+
+std::string DataFile::RealType(const std::string & strType)
+{
+	if (strType == "datetime")
+	{
+		return "uint64_t";
+	}
+	else if (strType == "string")
+	{
+		return "std::string";
+	}
+	return strType;
 }

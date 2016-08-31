@@ -1,9 +1,10 @@
 #pragma once
-
+#include <iostream>
 #include <string>
 #include <vector>
 #include <rapidxml.hpp>
 #include <list>
+#include <Index.h>
 
 bool	checkDataName(const std::string& strName);
 bool	checkType(const std::string& strName);
@@ -12,9 +13,8 @@ enum DataNodeType
 {
 	eNull,
 	eDataProperty,
-	eDataArray,
 	eDataKey,
-	eDataRepeat,
+	eDataRepeated,
 	eDataPackage,
 	eDataGroup,
 	eDataFile,
@@ -23,6 +23,10 @@ enum DataNodeType
 #define  CONSTRUCT(Name) Name( ):DataNode(e##Name){}
 #ifndef LOG_FILE
 #define  LOG_FILE std::cout << (__FILE__) << " in line:" << (__LINE__) << std::endl;
+#endif
+
+#ifndef LOG_ERROR
+#define LOG_ERROR(msg) std::cout << "Error: " << msg << std::endl;
 #endif
 
 struct DataNode
@@ -39,44 +43,27 @@ struct DataProperty : DataNode
 	bool	Parse(rapidxml::xml_node<>* pNode);
 	std::string		strName;
 	std::string		strType;
-	std::string		strDefault;
+	int32_t			iIndex = -1;
 	std::string		strDesc;
 };
 
-struct DataArray : DataNode
+struct DataRepeated : DataNode
 {
-	CONSTRUCT(DataArray)
-	bool	Parse(rapidxml::xml_node<>* pNode);
-	std::string		strName;
-	std::string		strType;
-	std::string		strLen;
-	std::string		strDesc;
-};
+	CONSTRUCT(DataRepeated)
+	bool				Parse(rapidxml::xml_node<>* pNode);
+	bool				Check();
+	DataProperty*		GetProperty(const std::string& strName);
 
+	virtual DataNode*	GetNode(std::list<std::string> listName) override;
 
-struct DataKey : DataNode
-{
-	CONSTRUCT(DataKey)
-	bool	Parse(rapidxml::xml_node<>* pNode);
-	std::string		strName;
-	std::string		strType;
-	std::string		strDesc;
-};
+	void				GenIndex(std::list < NameIndex >& listIndex, NameIndex stIndex);
 
-struct DataRepeat : DataNode
-{
-	CONSTRUCT(DataRepeat)
-	bool			Parse(rapidxml::xml_node<>* pNode);
-	bool			Check();
-	DataProperty*	GetProperty(const std::string& strName);
-
-	virtual DataNode* GetNode(std::list<std::string> listName) override;
+	std::string			GenCode(const std::string& strGroup);
 
 	std::string					strName;
 	std::string					strDesc;
-	DataKey						stKey;
 	std::vector<DataProperty>	vProperty;
-
+	int32_t						iIndex = -1;
 };
 
 struct DataPackage : DataNode
@@ -85,15 +72,15 @@ struct DataPackage : DataNode
 	bool			Parse(rapidxml::xml_node<>* pNode);
 	bool			Check();
 	DataProperty*	GetProperty(const std::string& strName);
-	DataRepeat*		GetRepeat(const std::string& strName);
 
 	virtual DataNode* GetNode(std::list<std::string> listName) override;
+
+	void				GenIndex(std::list < NameIndex >& listIndex, NameIndex stIndex);
 
 	std::string					strName;
 	std::string					strDesc;
 	std::vector<DataProperty>	vProperty;
-	std::vector<DataRepeat>		vRepeat;
-	std::vector<DataArray>		vArray;
+	int32_t						iIndex = -1;
 };
 
 struct DataGroup : DataNode
@@ -102,12 +89,16 @@ struct DataGroup : DataNode
 	bool				Parse(rapidxml::xml_node<>* pNode);
 	bool				Check();
 	DataPackage*		GetPacket(const std::string& strName);
+	DataRepeated*		GetRepeated(const std::string& strName);
+	virtual DataNode*  GetNode(std::list<std::string> listName) override;
 
-	virtual DataNode* GetNode(std::list<std::string> listName) override;
+	void				GenIndex(std::list < NameIndex >& listIndex);
 
 	std::string					strName;
-	DataKey						stKey;
 	std::vector<DataPackage>	vPackage;
+	std::vector<DataRepeated>	vRepeated;
+	uint32_t					iIndex = -1;
+	std::string					strFileName;
 };
 
 struct DataFile : DataNode
@@ -121,5 +112,12 @@ struct DataFile : DataNode
 
 	virtual DataNode* GetNode(std::list<std::string> listName) override;
 
+	bool	Generate(std::string& strCode, std::string& strRegistKeyField);
+
+	static std::string RealType(const std::string& strType);
+	
+
 	std::vector<DataGroup>	vGroup;
+	std::string				strFileName;
 };
+
