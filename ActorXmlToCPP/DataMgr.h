@@ -14,8 +14,18 @@ public:
 
 	static bool	WriteFile(const std::string& strFileName, const std::string& strOut, bool bCheck);
 
+	bool	GenerateSQL(std::string strFilePath);
+
 	static DataMgr& Instance();
+
+protected:
+
+	std::string	TypeToSql(const std::string& strType);
+
 private:
 	std::map<std::string, DataGroup*>	m_Group;
 	std::map < std::string, DataFile > m_File;
+
+	std::map<std::string, std::list<DataPackage*> >		m_PackageDB;
+	std::map<std::string, DataRepeated* >	m_RepeatedDB;
 };

@@ -1,10 +1,11 @@
-#include <TValue.h>
-#include <TRepeated.h>
-#include <TStruct.h>
+#pragma once
+#include <TData/TValue.h>
+#include <TData/TRepeated.h>
+#include <TData/TStruct.h>
+#include <TData/IDataAdapter.h>
 #include <DataDesc.h>
 
-template<typename DataHandle>
-struct PlayerBaseData : public TStruct<DataHandle>
+struct PlayerBaseData : public Data::TStruct<Data::IDataAdapter>
 {
 	PlayerBaseData()
 	{
@@ -22,9 +23,13 @@ struct PlayerBaseData : public TStruct<DataHandle>
 		bagequip.SetDataHandle(this);
 	}
 
-	TValue<uint32_t, PlayerBaseData, player_base_Level> Level; //玩家等级
-	TBaseValue<uint32_t, PlayerBaseData, player_base_Nation> Nation; //玩家国籍
-	TRepeated<player_bagequip_data, PlayerBaseData, player_bagequip> bagequip; //背包物品
+	using LevelType = Data::TValue<uint32_t, PlayerBaseData, player_base_Level>;
+	using NationType = Data::TBaseValue<uint32_t, PlayerBaseData, player_base_Nation>;
+	using bagequipType = Data::TRepeated<player_bagequip_data, PlayerBaseData, player_bagequip> ;
+
+	LevelType Level; //玩家等级
+	NationType Nation; //玩家国籍
+	bagequipType bagequip; //背包物品
 };
 
 

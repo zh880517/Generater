@@ -245,8 +245,7 @@ bool ActorStruct::GenCode(std::stringstream& strCode, std::set<std::string>& vDa
 {
 	std::stringstream& ssOut(strCode);
 	std::string strClassName = strActor + strName + "Data";
-	ssOut << "template<typename DataHandle>\n";
-	ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
+	ssOut << "struct " << strClassName << " : public Data::TStruct<Data::IDataAdapter>\n";
 	ssOut << "{\n";
 
 	ssOut << "\t" << strClassName << "()\n";
@@ -287,7 +286,7 @@ bool ActorStruct::GenCode(std::stringstream& strCode, std::set<std::string>& vDa
 		ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
 	}
 	ssOut << "\t}\n\n";
-
+	std::stringstream ssMember;
 	for (auto& it:vProperty)
 	{
 		KeyString stKey = Split(it.strKey);
@@ -316,14 +315,13 @@ bool ActorStruct::GenCode(std::stringstream& strCode, std::set<std::string>& vDa
 		std::string strEnum = pGroup->strName + "_" + pPackage->strName + "_" + pPro->strName;
 		if (it.bOwner)
 		{
-			ssOut << "\tTValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << "> "
-				<< pPro->strName << "; //" << pPro->strDesc << "\n";
+			ssOut << "\tusing " << pPro->strName << "Type = Data::TValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << ">;\n";
 		}
 		else
 		{
-			ssOut << "\tTBaseValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << "> "
-				<< pPro->strName << "; //" << pPro->strDesc << "\n";
+			ssOut << "\tusing " << pPro->strName << "Type = Data::TBaseValue<" << DataFile::RealType(pPro->strType) << ", " << strClassName << ", " << strEnum << ">;\n";
 		}
+		ssMember << "\t" << pPro->strName << "Type " << pPro->strName << "; //" << pPro->strDesc << "\n";
 	}
 
 	for (auto& it : vRepeat)
@@ -348,14 +346,17 @@ bool ActorStruct::GenCode(std::stringstream& strCode, std::set<std::string>& vDa
 		std::string strEnum = pGroup->strName + "_" + pRepeated->strName;
 		if (it.bOwner)
 		{
-			ssOut << "\tTRepeated<" << strRepeatedClassName <<", "<< strClassName << ", " << strEnum << "> " << it.strName << "; //" << pRepeated->strDesc <<"\n";
+			ssOut << "\tusing " << it.strName << "Type = Data::TRepeated<" << strRepeatedClassName << ", " << strClassName << ", " << strEnum << "> ;";
 		}
 		else
 		{
-			ssOut << "\tTBaseRepeat<" << strRepeatedClassName << ", " << strClassName << ", " << strEnum << "> " << it.strName << "; //" << pRepeated->strDesc << "\n";
+			ssOut << "\tusing " << it.strName << "Type = Data::TBaseRepeat<" << strRepeatedClassName << ", " << strClassName << ", " << strEnum << "> ;";
 		}
+		ssMember << "\t" << it.strName << "Type " << it.strName << "; //" << pRepeated->strDesc << "\n";
 	}
 
+	ssOut << "\n\n";
+	ssOut << ssMember.str();
 	ssOut << "};\n\n";
 
 	return true;
@@ -496,9 +497,11 @@ bool ActorFile::Generate(std::string& strOut)
 		if (!it.GenCode(ssCode, vDataFile))
 			return false;
 	}
-	ssOut << "#include <TValue.h>" << std::endl;
-	ssOut << "#include <TRepeated.h>" << std::endl;
-	ssOut << "#include <TStruct.h>" << std::endl;
+	ssOut << "#pragma once" << std::endl;
+	ssOut << "#include <TData/TValue.h>" << std::endl;
+	ssOut << "#include <TData/TRepeated.h>" << std::endl;
+	ssOut << "#include <TData/TStruct.h>" << std::endl;
+	ssOut << "#include <TData/IDataAdapter.h>" << std::endl;
 	for (auto& it:vDataFile)
 	{
 		ssOut << "#include <" << it << ".h>" << std::endl;

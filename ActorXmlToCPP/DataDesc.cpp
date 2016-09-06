@@ -64,6 +64,12 @@ bool DataProperty::Parse(rapidxml::xml_node<>* pNode)
 		std::cout << "Error : property node need name and type ¡¢Index" << std::endl;
 		return false;
 	}
+	if (strName == "Key" || strName == "Index")
+	{
+		LOG_FILE;
+		LOG_ERROR("Key¡¢Index can't use in property name.");
+		return false;
+	}
 	return true;
 }
 
@@ -86,18 +92,23 @@ bool DataRepeated::Parse(rapidxml::xml_node<>* pNode)
 		{
 			strDesc = pAtt->value();
 		}
+		else if (pAtt->name() == std::string("DB"))
+		{
+			strDB = pAtt->value();
+		}
+
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty())
+	if (strName.empty() || strDB.empty())
 	{
 		LOG_FILE;
-		std::cout << "Error : repeat node need name " << std::endl;
+		LOG_ERROR("repeat node need name and DB. ");
 		return false;
 	}
 	if (iIndex == -1)
 	{
 		LOG_FILE;
-		std::cout << "Error : repeat node need index " << std::endl;
+		LOG_ERROR("repeat node need index ");
 		return false;
 	}
 	rapidxml::xml_node<>* pProNode = pNode->first_node("property");
@@ -135,10 +146,21 @@ bool DataRepeated::Check()
 		if (vIndex.find(it.iIndex) != vIndex.end())
 		{
 			LOG_FILE;
-			std::cout << "Error : property index repeated name = " << it.strName << std::endl;
+			std::cout << "Error : property index existed name = " << it.strName << std::endl;
 			return false;
 		}
 		vIndex.insert(it.iIndex);
+	}
+	static std::set < std::string > vDB;
+	if (!strDB.empty())
+	{
+		if (vDB.find(strDB) != vDB.end())
+		{
+			LOG_FILE;
+			LOG_ERROR("Repeated DB existed, Repeated name = " << strName);
+			return false;
+		}
+		vDB.insert(strDB);
 	}
 	return true;
 }
@@ -172,12 +194,15 @@ DataNode* DataRepeated::GetNode(std::list<std::string> listName)
 void DataRepeated::GenIndex(std::list<NameIndex>& listIndex, NameIndex stIndex)
 {
 	stIndex.strPackRepeat = strName;
+	stIndex.strDB = strDB;
+	stIndex.IsRepeated = true;
 	stIndex.stIndex.Detail.Package = iIndex;
 	listIndex.push_back(stIndex);
 	for (auto& it : vProperty)
 	{
 		stIndex.strField = it.strName;
 		stIndex.stIndex.Detail.Property = it.iIndex;
+		stIndex.strType = it.strType;
 		listIndex.push_back(stIndex);
 	}
 }
@@ -185,45 +210,9 @@ void DataRepeated::GenIndex(std::list<NameIndex>& listIndex, NameIndex stIndex)
 std::string DataRepeated::GenCode(const std::string & strGroup)
 {
 	std::stringstream ssOut;
-// 	{
-// 		std::string strClassName = strGroup + "_" + strName + "_r";
-// 		ssOut << "template<typename DataHandle>\n";
-// 		ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
-// 		ssOut << "{\n";
-// 
-// 		ssOut << "\t" << strClassName << "()\n" ;
-// 		ssOut << "\t{\n";
-// 		for (auto& it : vProperty)
-// 		{
-// 			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
-// 		}
-// 		ssOut << "\t}\n";
-// 		ssOut << "\t" << strClassName << "(const " << strClassName << "& other)\n";
-// 		ssOut << "\t\t: ";
-// 		for (size_t i=0; i< vProperty.size(); ++i)
-// 		{
-// 			if (i != 0)
-// 				ssOut << "\t\t, ";
-// 			auto& it = vProperty[i];
-// 			ssOut << it.strName << "(other." << it.strName << ")\n";
-// 		}
-// 		ssOut << "\t{\n";
-// 		for (auto& it:vProperty)
-// 		{
-// 			ssOut << "\t\t" << it.strName << ".SetDataHandle(this);\n";
-// 		}
-// 		ssOut << "\t}\n\n";
-// 
-// 		for (auto& it:vProperty)
-// 		{
-// 			ssOut << "\tTBaseValue<" << DataFile::RealType(it.strType) << ", " << strClassName << ", " << strGroup << "_" << strName << "_" << it.strName << "> " << it.strName << ";\n";
-// 		}
-// 		ssOut << "};\n\n";
-// 	}
 	{
 		std::string strClassName = strGroup + "_" + strName + "_data";
-		ssOut << "template<typename DataHandle>\n";
-		ssOut << "struct " << strClassName << " : public TStruct<DataHandle>\n";
+		ssOut << "struct " << strClassName << " : public Data::TStruct<Data::IRepeated>\n";
 		ssOut << "{\n";
 
 		ssOut << "\t" << strClassName << "()\n";
@@ -252,8 +241,12 @@ std::string DataRepeated::GenCode(const std::string & strGroup)
 
 		for (auto& it : vProperty)
 		{
-			ssOut << "\tTValue<" << DataFile::RealType(it.strType) << ", " << strClassName << ", " << strGroup << "_" << strName << "_" << it.strName << "> "
-				<< it.strName << "; //" << it.strDesc << "\n";
+			ssOut << "\tusing " << it.strName << "Type = Data::TValue<" << DataFile::RealType(it.strType) << ", " << strClassName << ", " << strGroup << "_" << strName << "_" << it.strName << ">;\n";
+		}
+
+		for (auto& it : vProperty)
+		{
+			ssOut << "\t" << it.strName << "Type " << it.strName << "; //" << it.strDesc << "\n";
 		}
 		ssOut << "};\n\n";
 	}
@@ -279,18 +272,22 @@ bool DataPackage::Parse(rapidxml::xml_node<>* pNode)
 		{
 			strDesc = pAtt->value();
 		}
+		else if(pAtt->name() == std::string("DB"))
+		{
+			strDB = pAtt->value();
+		}
 		pAtt = pAtt->next_attribute();
 	}
-	if (strName.empty())
+	if (strName.empty() )
 	{
 		LOG_FILE;
-		std::cout << "Error : package node need name " << std::endl;
+		LOG_ERROR("package node need name .");
 		return false;
 	}
 	if (iIndex == -1)
 	{
 		LOG_FILE;
-		std::cout << "Error : package node need index " << std::endl;
+		LOG_ERROR("package node need index ");
 		return false;
 	}
 	{
@@ -369,12 +366,15 @@ DataNode* DataPackage::GetNode(std::list<std::string> listName)
 void DataPackage::GenIndex(std::list < NameIndex >& listIndex, NameIndex stIndex)
 {
 	stIndex.strPackRepeat = strName;
+	stIndex.strDB = strDB;
+	stIndex.IsRepeated = false;
 	stIndex.stIndex.Detail.Package = iIndex;
 	listIndex.push_back(stIndex);
 	for (auto& it:vProperty)
 	{
 		stIndex.strField = it.strName;
 		stIndex.stIndex.Detail.Property = it.iIndex;
+		stIndex.strType = it.strType;
 		listIndex.push_back(stIndex);
 	}
 }
@@ -419,6 +419,7 @@ bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
 				LOG_FILE;
 				std::cout << "Error : package in group :" << strName << std::endl;
 			}
+			stData.strGroup = strName;
 			vPackage.push_back(stData);
 			pPackageNode = pPackageNode->next_sibling("package");
 		}
@@ -433,6 +434,7 @@ bool DataGroup::Parse(rapidxml::xml_node<>* pNode)
 				LOG_FILE;
 				std::cout << "Error : repeated in package :" << strName << std::endl;
 			}
+			stData.strGroup = strName;
 			vRepeated.push_back(stData);
 			pRepeatedNode = pRepeatedNode->next_sibling("repeated");
 		}
@@ -659,9 +661,9 @@ bool DataFile::Generate(std::string& strCode, std::string& strRegistKeyField)
 	std::stringstream ssRepeated;
 	std::stringstream ssEnum;
 	std::stringstream ssOut;
-	ssOut << "#include <TValue.h>" << std::endl;
-	ssOut << "#include <TStruct.h>" << std::endl;
-	ssOut << "#include <IndexName.h>" << std::endl;
+	ssOut << "#pragma once" << std::endl;
+	ssOut << "#include <TData/TValue.h>" << std::endl;
+	ssOut << "#include <TData/TStruct.h>" << std::endl;
 	for (auto& it :vGroup)
 	{
 		std::list<NameIndex> GrouIndex;
@@ -685,11 +687,23 @@ bool DataFile::Generate(std::string& strCode, std::string& strRegistKeyField)
 	{
 		if (!it.strField.empty())
 		{
-			ssRegist << "\t\tKeyFieldMgr::AddField(\"" << it.strField << "\", " << it.strGroup << "_" << it.strPackRepeat << "_" << it.strField << ");\n";
+			ssRegist << "\t\tData::KeyFieldMgr::AddField(\"" << it.strField << "\", " << it.strGroup << "_" << it.strPackRepeat << "_" << it.strField <<", Data::FT_" << it.strType << ");\n";
 		} 
 		else
 		{
-			ssRegist << "\t\tKeyFieldMgr::AddKey(\"" << it.strGroup << "." << it.strPackRepeat << "\", " << it.strGroup << "_" << it.strPackRepeat << ");\n";
+			ssRegist << "\t\tData::KeyFieldMgr::AddKey(\"" << it.strGroup << "." << it.strPackRepeat << "\", " << it.strGroup << "_" << it.strPackRepeat << ");\n";
+			if (!it.strDB.empty())
+			{
+				if (it.IsRepeated)
+				{
+					ssRegist << "\t\tData::KeyFieldMgr::AddRepeatedDB(\"";
+				}
+				else
+				{
+					ssRegist << "\t\tData::KeyFieldMgr::AddPackageDB(\"";
+				}
+				ssRegist << it.strDB << "\", " << it.strGroup << "_" << it.strPackRepeat << ");\n";
+			}
 		}
 	}
 	ssRegist << "\t}\n";

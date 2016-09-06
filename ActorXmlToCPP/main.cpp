@@ -32,6 +32,11 @@ int main(int argc, char *argv[])
 		system("pause");
 		return 0;
 	}
+	if (!DataMgr::Instance().GenerateSQL(strCppPath + "DataSQL.sql"))
+	{
+		system("pause");
+		return 0;
+	}
 	
 	return 0;
 }

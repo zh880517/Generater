@@ -1,6 +1,6 @@
-#include <TValue.h>
-#include <TStruct.h>
-#include <IndexName.h>
+#pragma once
+#include <TData/TValue.h>
+#include <TData/TStruct.h>
 enum E_player_Index
 {
 	player_base = 0x0,
@@ -18,8 +18,7 @@ enum E_monster_Index
 	monster_base_Level = 0x10000,
 };
 
-template<typename DataHandle>
-struct player_bagequip_data : public TStruct<DataHandle>
+struct player_bagequip_data : public Data::TStruct<Data::IRepeated>
 {
 	player_bagequip_data()
 	{
@@ -34,7 +33,9 @@ struct player_bagequip_data : public TStruct<DataHandle>
 		Level.SetDataHandle(this);
 	}
 
-	TValue<uint32_t, player_bagequip_data, player_bagequip_ConfigId> ConfigId; //配置表ID
-	TValue<uint32_t, player_bagequip_data, player_bagequip_Level> Level; //强化等级
+	using ConfigIdType = Data::TValue<uint32_t, player_bagequip_data, player_bagequip_ConfigId>;
+	using LevelType = Data::TValue<uint32_t, player_bagequip_data, player_bagequip_Level>;
+	ConfigIdType ConfigId; //配置表ID
+	LevelType Level; //强化等级
 };
 

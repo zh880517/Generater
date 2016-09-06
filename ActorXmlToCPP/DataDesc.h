@@ -64,6 +64,8 @@ struct DataRepeated : DataNode
 	std::string					strDesc;
 	std::vector<DataProperty>	vProperty;
 	int32_t						iIndex = -1;
+	std::string					strDB;
+	std::string					strGroup;
 };
 
 struct DataPackage : DataNode
@@ -81,6 +83,8 @@ struct DataPackage : DataNode
 	std::string					strDesc;
 	std::vector<DataProperty>	vProperty;
 	int32_t						iIndex = -1;
+	std::string					strDB;
+	std::string					strGroup;
 };
 
 struct DataGroup : DataNode

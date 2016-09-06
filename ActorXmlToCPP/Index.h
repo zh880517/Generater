@@ -31,6 +31,9 @@ struct NameIndex
 {
 	std::string	 strGroup;
 	std::string	 strPackRepeat;
+	std::string	 strDB;
 	std::string	 strField;
+	std::string	 strType;
 	Index		 stIndex;
+	bool		 IsRepeated;
 };
